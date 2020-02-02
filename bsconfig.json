@@ -1,0 +1,23 @@
+{
+  "name": "ipa",
+  "version": "0.1.0",
+  "sources": {
+    "dir" : "src",
+    "subdirs" : true
+  },
+  "package-specs": {
+    "module": "commonjs",
+    "in-source": true
+  },
+  "ppx-flags": ["bs-let/ppx"],
+  "suffix": ".bs.js",
+  "bs-dependencies": [
+    "bs-fetch",
+    "bs-promise-monad"
+  ],
+  "warnings": {
+    "error" : "+101"
+  },
+  "namespace": true,
+  "refmt": 3
+}

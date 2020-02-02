@@ -1,0 +1,3 @@
+add "-ing" to the verb.
+when a verb ends in "e", drop the "e" and add "-ing". For example: "take + ing = taking".
+when a one-syllable verb ends in vowel + consonant, double the final consonant and add "-ing". For example: "hit + ing = hitting"
