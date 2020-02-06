@@ -1,3 +1,6 @@
-add "-ing" to the verb.
-when a verb ends in "e", drop the "e" and add "-ing". For example: "take + ing = taking".
-when a one-syllable verb ends in vowel + consonant, double the final consonant and add "-ing". For example: "hit + ing = hitting"
+There is no real secret when it comes to becoming a great developer. The thing that separates great developers from mediocre developers is the effort they’ve put in. Unfortunately, there are no shortcuts. Getting your hands dirty is what will make you grow as a developer.
+
+So while you’re on your way to becoming a fantastic developer, why not do it making something that’s actually fun to build?
+
+What’s fun to build? You’ve probably thought about this for a while. You want to build something but you don’t know what…well, let me help you out.
+In this piece, I’ll share seven projects with you that are both challenging and fun.

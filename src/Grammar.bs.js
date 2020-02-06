@@ -2,7 +2,13 @@
 'use strict';
 
 var Belt_Array = require("bs-platform/lib/js/belt_Array.js");
+var Caml_array = require("bs-platform/lib/js/caml_array.js");
+var Belt_Option = require("bs-platform/lib/js/belt_Option.js");
+var Caml_option = require("bs-platform/lib/js/caml_option.js");
+var Helpers$Ipa = require("./Helpers.bs.js");
 var Static__Verbs$Ipa = require("./Static__Verbs.bs.js");
+var Static__Words$Ipa = require("./Static__Words.bs.js");
+var Caml_chrome_debugger = require("bs-platform/lib/js/caml_chrome_debugger.js");
 var Caml_builtin_exceptions = require("bs-platform/lib/js/caml_builtin_exceptions.js");
 
 var re_vowelNcons = (/(?<vs>a|e|i|o|u|y)([b-d]|[f-h]|[j-t][uwxz])$/gi);
@@ -13,14 +19,46 @@ var re_diphthong = (/(a|e|i|o|u|y){2}/gi);
 
 var re_last_e = (/e$/i);
 
+var re_last_s_or_ss = (/ss?$/i);
+
 var re_last_letter_double = (/(?<l>\w)(\k<l>)$/i);
+
+var re_last_ed = (/ed$/i);
+
+var re_last_ing = (/ing$/i);
+
+var re_last_voiced_cons = (/(ch|f|k|p|sh?|th)$/i);
+
+var re_cons_i = (/([b-d]|[f-h]|[j-t][uwxz])i$/i);
+
+var re_last_sibilant = (/(ss?h?|ch?|zh?|j|x)/i);
+
+var re_last_voiceless = (/(ph?|k|t|f|gh)$/i);
+
+var re_last_voiced = (/(b|d|g|l|m|ng?|r|v)$/i);
+
+var re_apostrophy = (/'(\w*)$/i);
+
+function is_verb_e(word) {
+  var partial_arg = new RegExp(word + "e?$", "i");
+  return Belt_Array.some(Static__Verbs$Ipa.verbs_e, (function (param) {
+                return partial_arg.test(param);
+              }));
+}
+
+function is_word_e(word) {
+  var partial_arg = new RegExp(word + "e?$", "i");
+  return Belt_Array.some(Static__Words$Ipa.words_e, (function (param) {
+                return partial_arg.test(param);
+              }));
+}
 
 function count_syllables(word) {
   var match = re_vowel.exec(word);
   var vowel_count = match !== null ? match.length : 0;
   var match$1 = re_diphthong.exec(word);
   var diphthongs_count = match$1 !== null ? match$1.length : 0;
-  if (re_last_e.test(word)) {
+  if (Helpers$Ipa.Ops.$at$question(re_last_e, word)) {
     return (vowel_count - diphthongs_count | 0) - 1 | 0;
   } else {
     return vowel_count - diphthongs_count | 0;
@@ -28,59 +66,243 @@ function count_syllables(word) {
 }
 
 function is_ing(word) {
-  if ((/ing$/i).test(word)) {
-    var word_stem = word.replace((/ing$/i), "");
-    var re_is_word_stem = new RegExp(word_stem, "i");
+  if (Helpers$Ipa.Ops.$at$question(re_last_ing, word)) {
+    var word_stem = word.replace(re_last_ing, "");
     if (re_last_letter_double.test(word_stem)) {
       var letter = word_stem.charAt(word_stem.length - 1 | 0);
       word_stem = word_stem.replace(re_last_letter_double, letter);
-    } else if (Belt_Array.some(Static__Verbs$Ipa.verbs_e, (function (param) {
-              return re_is_word_stem.test(param);
-            }))) {
+    } else if (is_verb_e(word_stem)) {
       word_stem = word_stem.concat("e");
     }
     return /* tuple */[
             word_stem,
-            "ing"
+            /* Ing */0
           ];
   } else {
     return /* tuple */[
             word,
-            undefined
+            /* No */1
           ];
   }
 }
 
-function grammarify(word) {
-  var match = is_ing(word);
-  var match$1 = match[1];
-  var w = match[0];
-  var match$2;
-  if (match$1 !== undefined) {
-    if (match$1 === "ing") {
-      match$2 = /* tuple */[
-        w,
-        "ɪŋ"
-      ];
+function is_ed(word) {
+  if (Helpers$Ipa.Ops.$at$question(re_last_ed, word)) {
+    var word_stem = word.replace(re_last_ed, "");
+    if (is_verb_e(word_stem + "e")) {
+      return /* tuple */[
+              word_stem + "e",
+              /* Ed */Caml_chrome_debugger.variant("Ed", 0, [word_stem])
+            ];
+    } else if (Helpers$Ipa.Ops.$at$question(re_cons_i, word_stem)) {
+      var word_stem$1 = word_stem.slice(0, word_stem.length - 2 | 0);
+      return /* tuple */[
+              word_stem$1 + "y",
+              /* Ed */Caml_chrome_debugger.variant("Ed", 0, [word_stem$1])
+            ];
+    } else if (Helpers$Ipa.Ops.$at$question(re_last_letter_double, word_stem)) {
+      var letter = word_stem.charAt(word_stem.length - 1 | 0);
+      var word_stem$2 = word_stem.replace(re_last_letter_double, letter);
+      return /* tuple */[
+              word_stem$2,
+              /* Ed */Caml_chrome_debugger.variant("Ed", 0, [word_stem$2])
+            ];
     } else {
-      throw [
-            Caml_builtin_exceptions.match_failure,
-            /* tuple */[
-              "Grammar.re",
-              47,
-              4
-            ]
-          ];
+      return /* tuple */[
+              word_stem,
+              /* Ed */Caml_chrome_debugger.variant("Ed", 0, [word_stem])
+            ];
     }
   } else {
-    match$2 = /* tuple */[
-      w,
-      ""
-    ];
+    return /* tuple */[
+            word,
+            /* No */1
+          ];
   }
+}
+
+function is_plural(word) {
+  var len = word.length;
+  var last_two = word.slice(len - 2 | 0);
+  if (Belt_Array.some(/* array */[
+          "is",
+          "as"
+        ], (function (a) {
+            return a === word;
+          }))) {
+    return /* tuple */[
+            word,
+            /* No */1
+          ];
+  } else if (last_two === "es") {
+    var word_wo_s = word.slice(0, len - 1 | 0);
+    console.log("[is_plural] " + (String(last_two) + (" " + (String(word_wo_s) + ""))));
+    if (is_word_e(word_wo_s)) {
+      return /* tuple */[
+              word,
+              /* Possesive */Caml_chrome_debugger.variant("Possesive", 1, ["z"])
+            ];
+    } else {
+      return /* tuple */[
+              word,
+              /* Possesive */Caml_chrome_debugger.variant("Possesive", 1, ["ɪz"])
+            ];
+    }
+  } else if (last_two.charAt(1) === "s" && last_two.charAt(0) !== "s") {
+    if (Helpers$Ipa.Ops.$at$question(re_last_sibilant, word)) {
+      return /* tuple */[
+              word,
+              /* Possesive */Caml_chrome_debugger.variant("Possesive", 1, ["ɪz"])
+            ];
+    } else if (Helpers$Ipa.Ops.$at$question(re_last_voiceless, word)) {
+      return /* tuple */[
+              word,
+              /* Possesive */Caml_chrome_debugger.variant("Possesive", 1, ["s"])
+            ];
+    } else {
+      return /* tuple */[
+              word,
+              /* Possesive */Caml_chrome_debugger.variant("Possesive", 1, ["z"])
+            ];
+    }
+  } else {
+    return /* tuple */[
+            word,
+            /* No */1
+          ];
+  }
+}
+
+function is_possesive(word_stem, contraction) {
+  var word_stem$1 = word_stem;
+  var contr = contraction;
+  if (Helpers$Ipa.Ops.$at$question(re_last_s_or_ss, word_stem$1) && contraction === "") {
+    var len = word_stem$1.length;
+    word_stem$1 = word_stem$1.slice(0, len - 2 | 0);
+    contr = word_stem$1.slice(len - 2 | 0, len - 1 | 0);
+  }
+  return is_plural(word_stem$1);
+}
+
+function is_apostrophe(word) {
+  if (Helpers$Ipa.Ops.$at$question(re_apostrophy, word)) {
+    var word_stem = word.replace(re_apostrophy, "");
+    var contraction = Caml_array.caml_array_get(Belt_Option.getExn(Caml_option.null_to_opt(re_apostrophy.exec(word))), 1);
+    if (contraction == null) {
+      return is_plural(word_stem);
+    } else {
+      switch (contraction) {
+        case "d" :
+            return /* tuple */[
+                    word_stem,
+                    /* Aux */Caml_chrome_debugger.variant("Aux", 2, [/* D */0])
+                  ];
+        case "ll" :
+            return /* tuple */[
+                    word_stem,
+                    /* Aux */Caml_chrome_debugger.variant("Aux", 2, [/* Ll */3])
+                  ];
+        case "re" :
+            return /* tuple */[
+                    word_stem,
+                    /* Aux */Caml_chrome_debugger.variant("Aux", 2, [/* Re */1])
+                  ];
+        case "s" :
+            return is_possesive(word_stem, "s");
+        case "ve" :
+            return /* tuple */[
+                    word_stem,
+                    /* Aux */Caml_chrome_debugger.variant("Aux", 2, [/* Ve */2])
+                  ];
+        default:
+          throw [
+                Caml_builtin_exceptions.match_failure,
+                /* tuple */[
+                  "Grammar.re",
+                  154,
+                  4
+                ]
+              ];
+      }
+    }
+  } else {
+    return /* tuple */[
+            word,
+            /* No */1
+          ];
+  }
+}
+
+function ipa_of_suffix(suff) {
+  if (typeof suff === "number") {
+    if (suff === /* Ing */0) {
+      return "ɪŋ";
+    } else {
+      return "";
+    }
+  } else {
+    switch (suff.tag | 0) {
+      case /* Ed */0 :
+          if (Helpers$Ipa.Ops.$at$question(re_last_voiced_cons, suff[0])) {
+            return "t";
+          } else {
+            return "d";
+          }
+      case /* Possesive */1 :
+          return suff[0];
+      case /* Aux */2 :
+          switch (suff[0]) {
+            case /* D */0 :
+                return "əd";
+            case /* Re */1 :
+                return "ɚ";
+            case /* Ve */2 :
+                return "v";
+            case /* Ll */3 :
+                return "əl";
+            
+          }
+      
+    }
+  }
+}
+
+function grammarify(word) {
+  var wrd = word;
+  var suff = /* No */1;
+  for(var i = 0; i <= 3; ++i){
+    var match;
+    switch (i) {
+      case 0 :
+          match = is_ing(word);
+          break;
+      case 1 :
+          match = is_ed(word);
+          break;
+      case 2 :
+          match = is_plural(word);
+          break;
+      case 3 :
+          match = is_apostrophe(word);
+          break;
+      default:
+        match = /* tuple */[
+          "",
+          /* No */1
+        ];
+    }
+    var suff_ = match[1];
+    if (suff_ !== /* No */1) {
+      suff = suff_;
+      wrd = match[0];
+    }
+    
+  }
+  var ip = ipa_of_suffix(suff);
+  var w = wrd;
   return /* tuple */[
-          match$2[0],
-          match$2[1]
+          w,
+          ip
         ];
 }
 
@@ -88,8 +310,24 @@ exports.re_vowelNcons = re_vowelNcons;
 exports.re_vowel = re_vowel;
 exports.re_diphthong = re_diphthong;
 exports.re_last_e = re_last_e;
+exports.re_last_s_or_ss = re_last_s_or_ss;
 exports.re_last_letter_double = re_last_letter_double;
+exports.re_last_ed = re_last_ed;
+exports.re_last_ing = re_last_ing;
+exports.re_last_voiced_cons = re_last_voiced_cons;
+exports.re_cons_i = re_cons_i;
+exports.re_last_sibilant = re_last_sibilant;
+exports.re_last_voiceless = re_last_voiceless;
+exports.re_last_voiced = re_last_voiced;
+exports.re_apostrophy = re_apostrophy;
+exports.is_verb_e = is_verb_e;
+exports.is_word_e = is_word_e;
 exports.count_syllables = count_syllables;
 exports.is_ing = is_ing;
+exports.is_ed = is_ed;
+exports.is_plural = is_plural;
+exports.is_possesive = is_possesive;
+exports.is_apostrophe = is_apostrophe;
+exports.ipa_of_suffix = ipa_of_suffix;
 exports.grammarify = grammarify;
 /* re_vowelNcons Not a pure module */

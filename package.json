@@ -15,6 +15,7 @@
     "bs-platform": "^7.0.1"
   },
   "dependencies": {
+    "bs-cheerio": "^0.1.1",
     "bs-fetch": "^0.5.0",
     "bs-let": "^0.1.16",
     "bs-most": "^1.0.0",

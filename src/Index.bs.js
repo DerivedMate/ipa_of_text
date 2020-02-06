@@ -5,8 +5,9 @@ var Fs = require("fs");
 var Process = require("process");
 var Belt_Array = require("bs-platform/lib/js/belt_Array.js");
 var Caml_array = require("bs-platform/lib/js/caml_array.js");
+var Fetcher$Ipa = require("./Fetcher.bs.js");
 var Grammar$Ipa = require("./Grammar.bs.js");
-var Caml_splice_call = require("bs-platform/lib/js/caml_splice_call.js");
+var Helpers$Ipa = require("./Helpers.bs.js");
 
 ((require('isomorphic-fetch')));
 
@@ -16,48 +17,162 @@ var file_in = Fs.readFileSync(path_in, "utf8");
 
 var rex = (/\n+/g);
 
+var re_terminator = (/[\s,\.;\!\?"]/);
+
 function url_or_word(word) {
   var parsed = word.replace((/\s+/g), "-").toLowerCase();
   return "https://dictionary.cambridge.org/dictionary/english/" + (String(parsed) + "");
 }
 
-function ipa_of_word(word) {
-  return fetch(url_or_word(word)).then((function (prim) {
-                      return prim.text();
-                    })).then((function (html) {
-                    var rex = (/<span class="ipa dipa lpr-2 lpl-1">(\S+)<\/span>\/<\/span>/g);
-                    var match = rex.exec(html);
-                    return Promise.resolve(match !== null ? match : /* array */[]);
-                  })).then((function (ms) {
-                  return Promise.resolve(Belt_Array.get(Belt_Array.map(ms, (function (x) {
-                                        if (x == null) {
-                                          return "";
-                                        } else {
-                                          return x;
-                                        }
-                                      })), 1));
-                })).then((function (w) {
-                return Promise.resolve(w !== undefined ? w.trim() : word);
-              }));
-}
-
-Promise.all(Belt_Array.map(file_in.split((/\s+/g)), (function (x) {
-              if (x !== undefined) {
-                var match = Grammar$Ipa.grammarify(x);
-                var suffix = match[1];
-                return ipa_of_word(match[0]).then((function (ipa) {
-                              return Promise.resolve(ipa + suffix);
-                            }));
-              } else {
-                return Promise.resolve("");
-              }
-            }))).then((function (ws) {
-        return Promise.resolve((Caml_splice_call.spliceApply(console.log, [ws]), /* () */0));
+var words = Belt_Array.map(file_in.split((/\s+/g)), (function (w) {
+        if (w !== undefined) {
+          return w;
+        } else {
+          return "";
+        }
       }));
+
+var chunks = Belt_Array.keepMap(Belt_Array.reduce(Belt_Array.concat(file_in.split((/\s{0}/g)), /* array */[undefined]), /* array */[/* tuple */[
+            "",
+            ""
+          ]], (function (back, w) {
+            var match = Caml_array.caml_array_get(back, 0);
+            var acc = match[0];
+            var runes = Belt_Array.sliceToEnd(back, 1);
+            var is_term_acc = Helpers$Ipa.Ops.$at$question(re_terminator, acc);
+            if (w !== undefined) {
+              var c = w;
+              var is_term_c = Helpers$Ipa.Ops.$at$question(re_terminator, c);
+              if (is_term_c && !is_term_acc) {
+                var match$1 = Grammar$Ipa.grammarify(acc);
+                return Belt_Array.concatMany(/* array */[
+                            /* array */[/* tuple */[
+                                "",
+                                ""
+                              ]],
+                            runes,
+                            /* array */[
+                              /* tuple */[
+                                match$1[0],
+                                match$1[1]
+                              ],
+                              /* tuple */[
+                                c,
+                                ""
+                              ]
+                            ]
+                          ]);
+              } else {
+                return Helpers$Ipa.Ops.$at$pipe$great(/* tuple */[
+                            acc + c,
+                            ""
+                          ], runes);
+              }
+            } else if (is_term_acc) {
+              return Helpers$Ipa.Ops.$at$pipe$less(runes, /* tuple */[
+                          acc,
+                          ""
+                        ]);
+            } else {
+              var match$2 = Grammar$Ipa.grammarify(acc);
+              return Helpers$Ipa.Ops.$at$pipe$less(runes, /* tuple */[
+                          match$2[0],
+                          match$2[1]
+                        ]);
+            }
+          })), (function (param) {
+        var c = param[0];
+        if (c === "") {
+          return ;
+        } else {
+          return /* tuple */[
+                  c,
+                  param[1]
+                ];
+        }
+      }));
+
+var match = Belt_Array.reduce(chunks, /* tuple */[
+      /* array */[],
+      /* array */[]
+    ], (function (param, param$1) {
+        var suffix = param$1[1];
+        var structure = param[1];
+        var tokens = param[0];
+        var w = param$1[0].toLowerCase();
+        if (w === "") {
+          return /* tuple */[
+                  tokens,
+                  structure
+                ];
+        } else if (Belt_Array.some(tokens, (function (t) {
+                  return w === t;
+                }))) {
+          return /* tuple */[
+                  tokens,
+                  Helpers$Ipa.Ops.$at$pipe$less(structure, /* tuple */[
+                        w,
+                        suffix
+                      ])
+                ];
+        } else {
+          return /* tuple */[
+                  Helpers$Ipa.Ops.$at$pipe$less(tokens, w),
+                  Helpers$Ipa.Ops.$at$pipe$less(structure, /* tuple */[
+                        w,
+                        suffix
+                      ])
+                ];
+        }
+      }));
+
+var structure = match[1];
+
+var tokens = match[0];
+
+console.log(tokens);
+
+var tokens$1 = Promise.all(Belt_Array.map(tokens, (function (w) {
+                if (Helpers$Ipa.Ops.$at$question(re_terminator, w) || w === " " || (/^\d+$/g).test(w)) {
+                  return Promise.resolve(/* tuple */[
+                              w,
+                              w
+                            ]);
+                } else {
+                  return Fetcher$Ipa.$$fetch(w).then((function (t) {
+                                return Promise.resolve(/* tuple */[
+                                            t,
+                                            w
+                                          ]);
+                              }));
+                }
+              }))).then((function (tokens) {
+          return Promise.resolve(Belt_Array.map(structure, (function (param) {
+                            var token = param[0];
+                            var entry = Belt_Array.getBy(tokens, (function (param) {
+                                    return param[1] === token;
+                                  }));
+                            if (entry !== undefined) {
+                              return entry[0] + param[1];
+                            } else {
+                              return token;
+                            }
+                          })));
+        })).then((function (arr) {
+        return Promise.resolve((console.log(Belt_Array.reduce(arr, "", (function (prim, prim$1) {
+                                return prim + prim$1;
+                              }))), /* () */0));
+      }));
+
+console.log(structure);
 
 exports.path_in = path_in;
 exports.file_in = file_in;
 exports.rex = rex;
+exports.re_terminator = re_terminator;
 exports.url_or_word = url_or_word;
-exports.ipa_of_word = ipa_of_word;
+exports.words = words;
+exports.chunks = chunks;
+exports.structure = structure;
+exports.tokens = tokens$1;
 /*  Not a pure module */
